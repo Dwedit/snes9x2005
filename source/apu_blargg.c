@@ -3260,11 +3260,6 @@ static int8_t const reg_times_ [256] =
    29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
 };
 
-void S9xSetSoundMute(bool mute)
-{
-	Settings.Mute = mute;
-}
-
 bool S9xInitAPU()
 {
    int32_t i;
