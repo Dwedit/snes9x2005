@@ -440,6 +440,24 @@ void retro_run(void)
    IPPU.RenderThisFrame = false;
 #endif
 
+   int result = -1;
+   bool okay = environ_cb(RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE, &result);
+   if (okay)
+   {
+	   bool audioEnabled = 0 != (result & 2);
+	   bool videoEnabled = 0 != (result & 1);
+	   bool hardDisableAudio = 0 != (result & 8);
+	   IPPU.RenderThisFrame = videoEnabled;
+	   S9xSetSoundMute(!audioEnabled || hardDisableAudio);
+	   Settings.HardDisableAudio = hardDisableAudio;
+   }
+   else
+   {
+	   IPPU.RenderThisFrame = true;;
+	   S9xSetSoundMute(false);
+	   Settings.HardDisableAudio = false;
+   }
+
    poll_cb();
 
    RETRO_PERFORMANCE_INIT(S9xMainLoop_func);
@@ -580,7 +598,7 @@ size_t retro_serialize_size(void)
 #else
           SPC_SAVE_STATE_BLOCK_SIZE +
 #endif
-          sizeof(SA1) + sizeof(s7r) + sizeof(rtc_f9);
+	   (Settings.SA1 ? sizeof(SA1) : 0) + (Settings.SPC7110 ? sizeof(s7r) : 0) + (Settings.SPC7110RTC ? sizeof(rtc_f9) : 0);
 }
 
 bool retro_serialize(void* data, size_t size)
@@ -624,14 +642,24 @@ bool retro_serialize(void* data, size_t size)
    buffer += SPC_SAVE_STATE_BLOCK_SIZE;
 #endif
 
-   SA1.Registers.PC = SA1.PC - SA1.PCBase;
-   S9xSA1PackStatus();
+   if (Settings.SA1)
+   {
+	   SA1.Registers.PC = SA1.PC - SA1.PCBase;
+	   S9xSA1PackStatus();
 
-   memcpy(buffer, &SA1, sizeof(SA1));
-   buffer += sizeof(SA1);
-   memcpy(buffer, &s7r, sizeof(s7r));
-   buffer += sizeof(s7r);
-   memcpy(buffer, &rtc_f9, sizeof(rtc_f9));
+	   memcpy(buffer, &SA1, sizeof(SA1));
+	   buffer += sizeof(SA1);
+   }
+   if (Settings.SPC7110)
+   {
+	   memcpy(buffer, &s7r, sizeof(s7r));
+	   buffer += sizeof(s7r);
+   }
+   if (Settings.SPC7110RTC)
+   {
+	   memcpy(buffer, &rtc_f9, sizeof(rtc_f9));
+	   buffer += sizeof(rtc_f9);
+   }
 
    return true;
 }
@@ -682,19 +710,29 @@ bool retro_unserialize(const void* data, size_t size)
    buffer += SPC_SAVE_STATE_BLOCK_SIZE;
 #endif
 
-   memcpy(&SA1, buffer, sizeof(SA1));
-   buffer += sizeof(SA1);
-   memcpy(&s7r, buffer, sizeof(s7r));
-   buffer += sizeof(s7r);
-   memcpy(&rtc_f9, buffer, sizeof(rtc_f9));
+   if (Settings.SA1)
+   {
+	   memcpy(&SA1, buffer, sizeof(SA1));
+	   buffer += sizeof(SA1);
+	   S9xFixSA1AfterSnapshotLoad();
+	   S9xSA1UnpackStatus();
+   }
+   if (Settings.SPC7110)
+   {
+	   memcpy(&s7r, buffer, sizeof(s7r));
+	   buffer += sizeof(s7r);
+   }
+   if (Settings.SPC7110RTC)
+   {
+	   memcpy(&rtc_f9, buffer, sizeof(rtc_f9));
+	   buffer += sizeof(rtc_f9);
+   }
 
-   S9xFixSA1AfterSnapshotLoad();
    FixROMSpeed();
    IPPU.ColorsChanged = true;
    IPPU.OBJChanged = true;
    CPU.InDMA = false;
    S9xFixColourBrightness();
-   S9xSA1UnpackStatus();
 #ifndef USE_BLARGG_APU
    S9xAPUUnpackStatus();
    S9xFixSoundAfterSnapshotLoad();

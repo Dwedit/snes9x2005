@@ -901,6 +901,7 @@ enum retro_mod
                                             * writeable (and readable).
                                             */
 
+#define RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE (47 | RETRO_ENVIRONMENT_EXPERIMENTAL)
 enum retro_hw_render_interface_type
 {
    RETRO_HW_RENDER_INTERFACE_VULKAN = 0,
